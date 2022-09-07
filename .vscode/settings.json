@@ -1,0 +1,13 @@
+{
+  "[go]": {
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": true
+    },
+  },
+  "go.lintTool": "golangci-lint",
+  "go.lintFlags": [
+    "--fix"
+  ],
+  "go.lintOnSave": "workspace",
+}
