@@ -1,0 +1,47 @@
+name: build
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "**.go"
+      - go.mod
+      - go.sum
+      - Containerfile
+
+env:
+  OPERATOR_IMAGE_NAME: tbnco
+  IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
+  REGISTRY_USER: ${{ github.actor }}
+  REGISTRY_PASSWORD: ${{ github.token }}
+
+jobs:
+  container:
+    name: Build operator image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Build image
+        uses: redhat-actions/buildah-build@v2
+        id: build
+        with:
+          image: ${{ env.OPERATOR_IMAGE_NAME }}
+          tags: ${{ github.sha }}
+          containerfiles: |
+            ./Containerfile
+
+      - name: Push to GHCR
+        uses: redhat-actions/push-to-registry@v2
+        id: push
+        with:
+          image: ${{ steps.build.outputs.image }}
+          tags: ${{ steps.build.outputs.tags }}
+          registry: ${{ env.IMAGE_REGISTRY }}
+          username: ${{ env.REGISTRY_USER }}
+          password: ${{ env.REGISTRY_PASSWORD }}
+
+      - name: Print push output
+        run: echo "${{ toJSON(steps.push.outputs) }}"
