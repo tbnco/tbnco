@@ -1,0 +1,9 @@
+{
+  "recommendations": [
+    "golang.go",
+    "Gruntfuggly.todo-tree",
+    "davidanson.vscode-markdownlint",
+    "redhat.vscode-yaml",
+    "editorconfig.editorconfig"
+  ]
+}
