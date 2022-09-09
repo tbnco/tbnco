@@ -1,0 +1,47 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Basic Install
+  name: tbnco.v0.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: Network is the Schema for the networks API.
+      displayName: Network
+      kind: Network
+      name: networks.network.tbnco.github.io
+      version: v1alpha1
+  description: Network configuration operator
+  displayName: TBNCO
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - network
+  links:
+  - name: TBCNO
+    url: https://github.com/tbnco/tbnco
+  maintainers:
+  - email: noreply@example.com
+    name: noreply
+  maturity: alpha
+  provider:
+    name: TBNCO
+  version: 0.0.0
