@@ -2,9 +2,20 @@ componentConfig: true
 domain: tbnco.github.io
 layout:
 - go.kubebuilder.io/v3
+multigroup: true
 plugins:
   manifests.sdk.operatorframework.io/v2: {}
   scorecard.sdk.operatorframework.io/v2: {}
 projectName: tbnco
 repo: github.com/tbnco/tbnco
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: tbnco.github.io
+  group: network
+  kind: Network
+  path: github.com/tbnco/tbnco/apis/network/v1alpha1
+  version: v1alpha1
 version: "3"
