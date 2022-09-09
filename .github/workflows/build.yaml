@@ -9,9 +9,11 @@ on:
       - go.mod
       - go.sum
       - Containerfile
+      - config/**
 
 env:
   OPERATOR_IMAGE_NAME: tbnco
+  OPERATOR_BUNDLE_IMAGE_NAME: tbnco-bundle
   IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
   REGISTRY_USER: ${{ github.actor }}
   REGISTRY_PASSWORD: ${{ github.token }}
@@ -32,6 +34,44 @@ jobs:
           tags: ${{ github.sha }}
           containerfiles: |
             ./Containerfile
+
+      - name: Push to GHCR
+        uses: redhat-actions/push-to-registry@v2
+        id: push
+        with:
+          image: ${{ steps.build.outputs.image }}
+          tags: ${{ steps.build.outputs.tags }}
+          registry: ${{ env.IMAGE_REGISTRY }}
+          username: ${{ env.REGISTRY_USER }}
+          password: ${{ env.REGISTRY_PASSWORD }}
+
+      - name: Print push output
+        run: echo "${{ toJSON(steps.push.outputs) }}"
+
+  bundle:
+    name: Build operator bundle image
+    runs-on: ubuntu-latest
+    needs: container
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup operator-sdk CLI
+        uses: shivanshs9/setup-k8s-operator-sdk@v1
+        with:
+          version: "^1.23.0"
+
+      - name: Generate bundle
+        run: make bundle
+
+      - name: Build bundle image
+        uses: redhat-actions/buildah-build@v2
+        id: build
+        with:
+          image: ${{ env.OPERATOR_BUNDLE_IMAGE_NAME }}
+          tags: ${{ github.sha }}
+          containerfiles: |
+            ./bundle.Dockerfile
 
       - name: Push to GHCR
         uses: redhat-actions/push-to-registry@v2
