@@ -11,4 +11,7 @@
     "--fix"
   ],
   "go.lintOnSave": "workspace",
+  "gopls": {
+    "formatting.gofumpt": true,
+  },
 }

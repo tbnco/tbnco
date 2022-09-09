@@ -1,0 +1,6 @@
+apiVersion: network.tbnco.github.io/v1alpha1
+kind: Network
+metadata:
+  name: network-sample
+spec:
+  # TODO(user): Add fields here
