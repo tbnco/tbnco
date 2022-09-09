@@ -19,9 +19,21 @@ env:
   REGISTRY_PASSWORD: ${{ github.token }}
 
 jobs:
+  test:
+    name: Run go tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: make test
+
   container:
     name: Build operator image
     runs-on: ubuntu-latest
+    needs: test
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
