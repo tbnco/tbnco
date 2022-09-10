@@ -4,8 +4,10 @@ import (
 	"context"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	networkv1alpha1 "github.com/tbnco/tbnco/apis/network/v1alpha1"
@@ -14,7 +16,8 @@ import (
 // NetworkReconciler reconciles a Network object.
 type NetworkReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme   *runtime.Scheme
+	Recorder record.EventRecorder
 }
 
 //+kubebuilder:rbac:groups=network.tbnco.github.io,resources=networks,verbs=get;list;watch;create;update;patch;delete
@@ -23,17 +26,65 @@ type NetworkReconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the Network object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.12.2/pkg/reconcile
 func (r *NetworkReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	log := log.FromContext(ctx)
 
-	// TODO(user): your logic here
+	// Fetch Network instance.
+	network := &networkv1alpha1.Network{}
+	err := r.Get(ctx, req.NamespacedName, network)
+	if err != nil {
+		// Error reading the object - requeue the request.
+		log.Error(err, "Failed to get Network instance")
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	// Set finalizer if not already set.
+	if !controllerutil.ContainsFinalizer(network, NetworkFinalizer) {
+		log.V(1).Info("Add finalizer")
+
+		if ok := controllerutil.AddFinalizer(network, NetworkFinalizer); !ok {
+			log.Error(err, "Failed to add finalizer")
+			return ctrl.Result{Requeue: true}, nil
+		}
+
+		if err = r.Update(ctx, network); err != nil {
+			log.Error(err, "Failed to update CR to add finalizer")
+			return ctrl.Result{}, err
+		}
+	}
+
+	// Check for CR deletion and run finalizer logic.
+	isMarkedToBeDeleted := network.GetDeletionTimestamp() != nil
+	if isMarkedToBeDeleted {
+		if controllerutil.ContainsFinalizer(network, NetworkFinalizer) {
+			// Run logic for finalizer. In case of errors
+			// don't remove the finalizer so that it can
+			// be retried at the next reconciliation loop.
+			if err := r.finalize(ctx, network); err != nil {
+				log.Error(err, "Failed to run finalizer")
+				return ctrl.Result{}, err
+			}
+
+			// Remove finalizer. Once all finalizers have been
+			// removed, the object will be deleted.
+			if ok := controllerutil.RemoveFinalizer(network, NetworkFinalizer); !ok {
+				log.Error(err, "Failed to remove finalizer")
+				return ctrl.Result{Requeue: true}, nil
+			}
+
+			// Update CR to apply finalizer deletion.
+			if err := r.Update(ctx, network); err != nil {
+				log.Error(err, "Failed to remove finalizer")
+				return ctrl.Result{}, err
+			}
+		}
+
+		// Nothing to do, end reconcile loop.
+		return ctrl.Result{}, nil
+	}
 
 	return ctrl.Result{}, nil
 }
