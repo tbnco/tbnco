@@ -10,6 +10,7 @@ on:
       - go.sum
       - Containerfile
       - config/**
+  workflow_dispatch:
 
 env:
   OPERATOR_IMAGE_NAME: tbnco
@@ -30,10 +31,42 @@ jobs:
           cache: true
       - run: make test
 
+  version:
+    name: Generate SemVer
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout code with git history
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Generate basic SemVer inputs
+        id: semver
+        uses: PaulHatch/semantic-version@v5.0.0-alpha2
+        with:
+          format: "${major}.${minor}.${patch}"
+
+      - name: Generate additional vars
+        id: vars
+        run: |
+          echo ::set-output name=timestamp::$(git log -1 --date=format:%Y%m%d%H%M%S --format=%cd)
+          echo ::set-output name=git_sha_short::$(git rev-parse --short HEAD)
+
+      - name: Generate final SemVer
+        id: version
+        run: |
+          semver=${{ steps.semver.outputs.version }}
+          timestamp=${{ steps.vars.outputs.timestamp }}
+          sha=${{ steps.vars.outputs.git_sha_short }}
+          version=${semver}-${timestamp}-${sha}
+          echo ::set-output name=version::${version}
+
   container:
     name: Build operator image
     runs-on: ubuntu-latest
-    needs: test
+    needs: [test, version]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -43,7 +76,7 @@ jobs:
         id: build
         with:
           image: ${{ env.OPERATOR_IMAGE_NAME }}
-          tags: ${{ github.sha }}
+          tags: ${{ needs.version.outputs.version }}
           containerfiles: |
             ./Containerfile
 
@@ -63,20 +96,24 @@ jobs:
   bundle:
     name: Build operator bundle image
     runs-on: ubuntu-latest
-    needs: container
+    needs: [container, version]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
       - name: Generate bundle
-        run: make bundle
+        run: |
+          version=${{ needs.version.outputs.version }}
+          image=${{ env.OPERATOR_IMAGE_NAME }}:${version}
+
+          make bundle IMG=${image} VERSION=${version}
 
       - name: Build bundle image
         uses: redhat-actions/buildah-build@v2
         id: build
         with:
           image: ${{ env.OPERATOR_BUNDLE_IMAGE_NAME }}
-          tags: ${{ github.sha }}
+          tags: ${{ needs.version.outputs.version }}
           containerfiles: |
             ./bundle.Dockerfile
 
