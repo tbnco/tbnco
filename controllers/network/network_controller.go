@@ -3,6 +3,7 @@ package network
 import (
 	"context"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -34,11 +35,15 @@ func (r *NetworkReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// Fetch Network instance.
 	network := &networkv1alpha1.Network{}
-	err := r.Get(ctx, req.NamespacedName, network)
-	if err != nil {
-		// Error reading the object - requeue the request.
+	if err := r.Get(ctx, req.NamespacedName, network); err != nil {
+		// Object not found error occurs if the object is deleted.
+		// No need to reconcile here again.
+		if apierrors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
+
 		log.Error(err, "Failed to get Network instance")
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+		return ctrl.Result{}, err
 	}
 
 	// Set finalizer if not already set.
@@ -46,11 +51,11 @@ func (r *NetworkReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		log.V(1).Info("Add finalizer")
 
 		if ok := controllerutil.AddFinalizer(network, NetworkFinalizer); !ok {
-			log.Error(err, "Failed to add finalizer")
+			log.Error(nil, "Failed to add finalizer")
 			return ctrl.Result{Requeue: true}, nil
 		}
 
-		if err = r.Update(ctx, network); err != nil {
+		if err := r.Update(ctx, network); err != nil {
 			log.Error(err, "Failed to update CR to add finalizer")
 			return ctrl.Result{}, err
 		}
@@ -71,7 +76,7 @@ func (r *NetworkReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			// Remove finalizer. Once all finalizers have been
 			// removed, the object will be deleted.
 			if ok := controllerutil.RemoveFinalizer(network, NetworkFinalizer); !ok {
-				log.Error(err, "Failed to remove finalizer")
+				log.Error(nil, "Failed to remove finalizer")
 				return ctrl.Result{Requeue: true}, nil
 			}
 
