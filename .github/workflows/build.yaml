@@ -138,3 +138,4 @@ jobs:
     with:
       operatorName: ${{ env.OPERATOR_NAME }}
       bundleImage: ${{ env.IMAGE_REGISTRY }}/${{ env.OPERATOR_BUNDLE_IMAGE_NAME }}:${{ needs.version.outputs.version }}
+      clusterLoginInsecure: true

@@ -21,6 +21,12 @@ on:
         default: false
         required: false
 
+      clusterLoginInsecure:
+        description: Skip TLS verification during login step into cluster.
+        type: boolean
+        default: false
+        required: false
+
   workflow_dispatch:
     inputs:
       operatorName:
@@ -41,6 +47,12 @@ on:
         default: false
         required: false
 
+      clusterLoginInsecure:
+        description: Skip TLS verification during login step into cluster.
+        type: boolean
+        default: false
+        required: false
+
 jobs:
   deploy:
     name: Deploy operator bundle
@@ -57,6 +69,7 @@ jobs:
           openshift_server_url: ${{ secrets.CLUSTER_API_URL }}
           openshift_token: ${{ secrets.CLUSTER_DEPLOYMENT_TOKEN }}
           namespace: ${{ secrets.CLUSTER_DEPLOYMENT_NAMESPACE }}
+          insecure_skip_tls_verify: ${{ inputs.clusterLoginInsecure }}
 
       - name: Deploy bundle to cluster
         working-directory: ./bin
