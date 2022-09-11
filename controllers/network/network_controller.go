@@ -46,9 +46,16 @@ func (r *NetworkReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
+	// Initialize conditions if necessary.
+	network.Status.SetConditionDefaults()
+	if err := r.Status().Update(ctx, network); err != nil {
+		log.Error(err, "Failed to update status")
+		return ctrl.Result{}, err
+	}
+
 	// Set finalizer if not already set.
 	if !controllerutil.ContainsFinalizer(network, NetworkFinalizer) {
-		log.V(1).Info("Add finalizer")
+		log.Info("Add finalizer")
 
 		if ok := controllerutil.AddFinalizer(network, NetworkFinalizer); !ok {
 			log.Error(nil, "Failed to add finalizer")
@@ -65,11 +72,27 @@ func (r *NetworkReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	isMarkedToBeDeleted := network.GetDeletionTimestamp() != nil
 	if isMarkedToBeDeleted {
 		if controllerutil.ContainsFinalizer(network, NetworkFinalizer) {
+			log.Info("Run finalizer")
+
+			// Set CR to degraded, as deletion is in progress and finalizer logic runs.
+			network.Status.SetConditionDegraded(networkv1alpha1.ReasonFinalizing, "Finalizer running")
+			if err := r.Status().Update(ctx, network); err != nil {
+				log.Error(err, "Failed to update status")
+				return ctrl.Result{}, err
+			}
+
 			// Run logic for finalizer. In case of errors
 			// don't remove the finalizer so that it can
 			// be retried at the next reconciliation loop.
 			if err := r.finalize(ctx, network); err != nil {
 				log.Error(err, "Failed to run finalizer")
+				return ctrl.Result{}, err
+			}
+
+			// Set CR to degraded, as finalizer logic executed successfully.
+			network.Status.SetConditionDegraded(networkv1alpha1.ReasonFinalizing, "Finalizer successfully executed")
+			if err := r.Status().Update(ctx, network); err != nil {
+				log.Error(err, "Failed to update status")
 				return ctrl.Result{}, err
 			}
 
@@ -82,13 +105,23 @@ func (r *NetworkReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 			// Update CR to apply finalizer deletion.
 			if err := r.Update(ctx, network); err != nil {
-				log.Error(err, "Failed to remove finalizer")
+				log.Error(err, "Failed to update resource to remove finalizer")
 				return ctrl.Result{}, err
 			}
 		}
 
 		// Nothing to do, end reconcile loop.
 		return ctrl.Result{}, nil
+	}
+
+	// TODO: Run reconciler logic.
+
+	// Reconciler loop successful. For now it is assumed, that
+	// the Network is fully working.
+	network.Status.SetConditionAvailable()
+	if err := r.Status().Update(ctx, network); err != nil {
+		log.Error(err, "Failed to update status")
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
