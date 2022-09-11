@@ -1,0 +1,71 @@
+name: deploy
+
+on:
+  workflow_call:
+    inputs:
+      operatorName:
+        description: Operator name as defined in the bundle.
+        required: true
+        type: string
+
+      bundleImage:
+        description: Operator bundle image to deploy.
+        required: true
+        type: string
+
+      cleanAll:
+        description: |
+          Remove every existing artifact in the target environment.
+          Be aware, this also deletes CRDs and its instances.
+        type: boolean
+        default: false
+        required: false
+
+  workflow_dispatch:
+    inputs:
+      operatorName:
+        description: Operator name as defined in the bundle.
+        required: true
+        type: string
+
+      bundleImage:
+        description: Operator bundle image to deploy.
+        required: true
+        type: string
+
+      cleanAll:
+        description: |
+          Remove every existing artifact in the target environment.
+          Be aware, this also deletes CRDs and its instances.
+        type: boolean
+        default: false
+        required: false
+
+jobs:
+  deploy:
+    name: Deploy operator bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Fetch operator-sdk CLI
+        run: make operator-sdk
+
+      - name: Authenticate and set context
+        uses: redhat-actions/oc-login@v1
+        with:
+          openshift_server_url: ${{ secrets.CLUSTER_API_URL }}
+          openshift_token: ${{ secrets.CLUSTER_DEPLOYMENT_TOKEN }}
+          namespace: ${{ secrets.CLUSTER_DEPLOYMENT_NAMESPACE }}
+
+      - name: Deploy bundle to cluster
+        working-directory: ./bin
+        run: |
+          if [[ "${{ inputs.cleanAll }}" = "true" ]]; then
+            echo "Clean existing resources completely"
+            ./operator-sdk cleanup "${{ inputs.operatorName }}"
+          else
+            ./operator-sdk cleanup --delete-all=false --delete-operator-groups "${{ inputs.operatorName }}"
+          fi
+
+          ./operator-sdk run bundle --service-account="${{ secrets.CLUSTER_DEPLOYMENT_SA }}" "${{ inputs.bundleImage }}"
