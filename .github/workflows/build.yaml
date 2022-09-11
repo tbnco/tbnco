@@ -46,7 +46,7 @@ jobs:
         id: semver
         uses: PaulHatch/semantic-version@v5.0.0-alpha2
         with:
-          format: "${major}.${minor}.${patch}"
+          version_format: "${major}.${minor}.${patch}"
 
       - name: Generate additional vars
         id: vars
@@ -105,8 +105,9 @@ jobs:
         run: |
           version=${{ needs.version.outputs.version }}
           image=${{ env.OPERATOR_IMAGE_NAME }}:${version}
+          registry=${{ env.IMAGE_REGISTRY }}
 
-          make bundle IMG=${image} VERSION=${version}
+          make bundle IMG=${registry}/${image} VERSION=${version}
 
       - name: Build bundle image
         uses: redhat-actions/buildah-build@v2
