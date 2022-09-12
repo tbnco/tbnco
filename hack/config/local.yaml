@@ -1,0 +1,4 @@
+apiVersion: config.tbnco.github.io/v1alpha1
+kind: ControllerManagerConfig
+spec:
+  cacheNamespace: <your_test_namespace>
