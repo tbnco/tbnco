@@ -11,7 +11,16 @@ import (
 type NetworkSpec struct{}
 
 // NetworkStatus defines the observed state of Network.
-type NetworkStatus struct{}
+type NetworkStatus struct {
+	// Conditions holds the status conditions of the resource.
+	//
+	// +optional
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=type
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+}
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
