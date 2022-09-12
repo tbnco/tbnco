@@ -3,15 +3,20 @@ package network
 import (
 	"context"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	configv1alpha1 "github.com/tbnco/tbnco/apis/config/v1alpha1"
 	networkv1alpha1 "github.com/tbnco/tbnco/apis/network/v1alpha1"
+	"github.com/tbnco/tbnco/internal/predicate"
 )
 
 // NetworkReconciler reconciles a Network object.
@@ -19,11 +24,14 @@ type NetworkReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme
 	Recorder record.EventRecorder
+	Config   configv1alpha1.ControllerManagerConfigSpec
 }
 
 //+kubebuilder:rbac:groups=network.tbnco.github.io,resources=networks,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=network.tbnco.github.io,resources=networks/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=network.tbnco.github.io,resources=networks/finalizers,verbs=update
+//
+//+kubebuilder:rbac:groups=core,resources=namespaces,verbs=get
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -96,7 +104,30 @@ func (r *NetworkReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *NetworkReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&networkv1alpha1.Network{}).
-		Complete(r)
+	builder := ctrl.NewControllerManagedBy(mgr).
+		For(&networkv1alpha1.Network{})
+
+	// Setup namespace filter based on labels.
+	if r.Config.NamespaceSelector != nil {
+		selector, err := metav1.LabelSelectorAsSelector(r.Config.NamespaceSelector)
+		if err != nil {
+			return err
+		}
+
+		// Define namespace getter closure.
+		nsGetter := func(namespace string) (*corev1.Namespace, error) {
+			ns := &corev1.Namespace{}
+
+			err := r.Client.Get(context.Background(), types.NamespacedName{
+				Name: namespace,
+			}, ns)
+
+			return ns, err
+		}
+
+		builder.WithEventFilter(predicate.FilterNamespace(selector, nsGetter))
+	}
+
+	// Finish controller setup.
+	return builder.Complete(r)
 }

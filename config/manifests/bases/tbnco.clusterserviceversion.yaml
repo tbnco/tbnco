@@ -10,6 +10,13 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
+    - description: "ControllerManagerConfig is the Schema for the controllermanagerconfigs
+        API. \n Currently all fields have to be defined although not really necessary
+        for the use case of this object. See https://github.com/operator-framework/operator-sdk/issues/5584."
+      displayName: Controller Manager Config
+      kind: ControllerManagerConfig
+      name: controllermanagerconfigs.config.tbnco.github.io
+      version: v1alpha1
     - description: Network is the Schema for the networks API.
       displayName: Network
       kind: Network
